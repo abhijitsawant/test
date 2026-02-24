@@ -1,66 +1,41 @@
-cd ~/aiops-lab/env
+#!/bin/bash
 
+cd ~/aiops-lab/env || exit 1
+
+# Clear previous log
 : > lab-logs/lab2-noise.log
-
- 
 
 while true; do
 
-  # Base latency mostly healthy
+  # Base latency mostly healthy (50–649 ms)
+  latency=$((RANDOM % 600 + 50))
 
-  latency=$((RANDOM%600 + 50))   # 50–649ms baseline
-
- 
-
-  # Every ~20 seconds,
-
-simulate a "degradation window" for 6 seconds
-
-  # (Vodafone-style: dependency slowdown / DB saturation / network jitter)
-
+  # Every ~20 seconds simulate a 6-second degradation window
   if [ $(( $(date +%s) % 20 )) -lt 6 ]; then
+    # Degradation latency (800–1199 ms)
+    latency=$((RANDOM % 400 + 800))
 
-    latency=$((RANDOM%400 + 800))  # 800–1199ms during degradation
-
-    # during degradation, error rate is higher
-
-    r=$((RANDOM%10))
-
+    # Higher error rate during degradation (~50%)
+    r=$((RANDOM % 10))
     lvl="info"
-
-    if [ $r -ge 5 ];
-
-then lvl="error"; fi   # ~50% errors in degradation
-
+    if [ "$r" -ge 5 ]; then
+      lvl="error"
+    fi
   else
-
-    # normal window: occasional errors
-
-    r=$((RANDOM%10))
-
+    # Normal window (~30% errors)
+    r=$((RANDOM % 10))
     lvl="info"
-
-    if [ $r -ge 7 ];
-
-then lvl="error"; fi   # ~30% errors normally
-
+    if [ "$r" -ge 7 ]; then
+      lvl="error"
+    fi
   fi
 
- 
+  # Burstiness: 1–3 log lines per second
+  burst=$((RANDOM % 3 + 1))
 
-  # Burstiness: sometimes write multiple logs in 1 second (traffic spikes)
-
-  burst=$((RANDOM%3 + 1))  # 1–3 lines/sec
-
-  for i in $(seq 1 $burst); do
-
-    echo "$(date
-
--Iseconds) service=checkout level=$lvl latency_ms=$latency" >> lab-logs/lab2-noise.log
-
+  for i in $(seq 1 "$burst"); do
+    echo "$(date -Iseconds) service=checkout level=$lvl latency_ms=$latency" >> lab-logs/lab2-noise.log
   done
-
- 
 
   sleep 1
 
