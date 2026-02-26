@@ -1,0 +1,99 @@
+3) STEP 1 — Create a metric spike (Symptom)
+A. Run the burst generator (2–3 minutes)
+
+In terminal (from cd ~/aiops-lab/env):
+
+for i in {1..120}; do
+  echo "$(date -Iseconds) service=checkout level=error latency_ms=$((800 + RANDOM%400)) user_id=$RANDOM msg=\"db timeout\"" \
+  >> lab-logs/lab2-noise.log
+  sleep 1
+done
+
+This simulates:
+
+burst load
+
+latency inflation (800–1200ms)
+
+error burst
+
+many users
+
+B. In Grafana Explore (Loki), run the “volume spike” query
+
+Query A (metric-like log rate):
+
+sum by (job)(rate({job="labfiles"}[1m]))
+
+How to validate it worked
+
+You should see a clear rise during the burst window.
+
+If you don’t, change time range to Last 30 minutes and refresh.
+
+4) STEP 2 — Correlate with logs (Scope + Evidence)
+
+
+A. Confirm errors align to the spike window
+
+Query B (error burst):
+
+{job="labfiles"} |= "level=error"
+
+
+B. Confirm latency evidence in the same window
+
+Query C (latency evidence):
+
+{job="labfiles"} |= "latency_ms"
+
+Optional: focus on high latency values (simple filter)
+
+{job="labfiles"} |= "latency_ms=" |~ "latency_ms=(8|9|10|11)"
+
+
+5) STEP 3 — Narrow scope (who / what)
+
+This is the operator move: narrow before guessing cause.
+
+A. Scope by service
+
+Query D (service scope):
+
+{job="labfiles"} |= "service=checkout"
+
+Expected:
+
+Most burst logs are now clearly from checkout
+
+B. Scope by user pattern
+
+Query E (who):
+
+{job="labfiles"} |= "user_id="
+
+How to interpret:
+
+Many user_ids → broad impact / traffic surge scenario
+
+Same user_id repeating → localized abuse / buggy client loop scenario
+
+(Your screenshot showed many user_ids, so it’s the “broad spike” version.)
+
+“If tracing existed, this is where we’d confirm which downstream call slowed down and whether retries happened.”
+
+7) The actual exercise — Write the RCA (10 minutes)
+
+Give them this exact template. No essays.
+
+RCA TEMPLATE (mandatory)
+
+Symptom: what alerted + when
+
+Scope: which service + who impacted
+
+Evidence: 2–3 facts from metrics + logs
+
+Likely cause: 1-sentence hypothesis
+
+Next action: 1–2 concrete prevention steps
